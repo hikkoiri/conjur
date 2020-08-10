@@ -20,9 +20,12 @@
 
 ## Glossary
 
-| **Term** | **Description** |
-|----------|-----------------|
-| encoded         | base64 encoded               |
+| **Term** | **Description**  |
+|----------|------------------|
+| encoded  |base64 encoded    |
+| JWS      |json web signature|
+| JWT      |json web token    |
+
 
 ## Useful links
 1. [HTTP Content Negotiation Best Practices](https://restfulapi.net/content-negotiation/)
@@ -35,22 +38,22 @@
 4. [Correct Usage of JSON](https://stackoverflow.com/questions/477816/what-is-the-correct-json-content-type)
 
 ## Background
-When a user connects to Conjur (via UI or CLI etc.), Conjur uses `authn` authenticator to perform the authentication.
 
-The current situation is:
+As a Conjur User or Host, I want to send authentication request to `authn` authenticator (for example).
+So that I receive a JWT access token.
 
 ![alt text](encoded_token_chart.jpeg "Login process")
 
-The response is a JSON like:
+Current authentication response is a Flattened JWS JSON Serialization, e.g:
 ```json
 {
-    "protected": "eyJhbGciOiJjb25qdXIub3JnL3Nsb3NpbG8vdjIiLCJraWQiOiJjNjEyNTgwNzQ1YjkxMTBjNGQ5YjBkZWFkYTZkMGU0NjlmNDNkMjE5ZDIwZjdiMGM1YmNlMDVmYjE0MGYzNGM4In0=",
-    "payload": "eyJzdWIiOiJhZG1pbiIsImlhdCI6MTU5NjEyNzg1N30=",
-    "signature": "CZgBa6SwfumtC90QoIIh_vfeXgO_I1SfFYrl4RMiCrW_NtMPOoBIbV6WKze1_P6EjnGAsOHoZmEJ3g_7GpTAAuFU6arj2Ku4JDUup--jPTvfAcPxZViQBISTTmwLUXlDqPsIFbG9lfLV-cCM0v_6BbU0dgWba-w-k41PGHQupioSe_kr5b6izo9prSYlCpn_s9GZz41AYDPxiEPZHk-Xe2fjJCRt5vUI_QJKGA8pScMUozFIxXeGeH3nM28W54rqdRQoJxvgW7YUH_5x0nNurLgtJQSZHI38x9uTassLiRluj5AtkB6DCPCvRQiNdq2yyAQOZuVe7Cj8baHYDDrIpJNUjW2VeJ22f-vcGrsoB6X3H7Y2hfzBxw1NQjEaDaz5"
+    "protected": "eyJh...",
+    "payload": "eyJz...",
+    "signature": "CZgB..."
 }
 ``` 
 
-In order to work with the server the user **must** encode the response:
+In order to use this token for restricted endpoint it **must** be encode and added to `Authorization: Token token=` header:
 ```sh
 echo "Get Conjur access token using an Azure access token"
 # Get an authn-azure Conjur access token for host azure-apps/test-app
@@ -67,11 +70,10 @@ secret=$(curl -k -H "Authorization: Token token=\"$authn_azure_access_token\"" \
 
 echo "Retrieved secret ${secret} from Conjur!!!"
 ```
-Taken from: https://github.com/cyberark/conjur/blob/application_identity_validation/ci/authn-azure/run-authn-azure.sh#L16
+[Code reference](https://github.com/cyberark/conjur/blob/application_identity_validation/ci/authn-azure/run-authn-azure.sh#L16)
 
 
-The required situation is to support both `application/json` response (as above) and encoded one.
-The user will have the option to receive an encoded response which skips the encoding process afterwards. 
+The requested situation is to support both response of current **Flattened** JWS JSON Serialization with content type `application/json` and encoded JWS **Compact** Serialization with content type `text\plain`. 
 
 ## Issue description
 1. HTTP server best practices: Using `application\json` as the content type to encoded output (not a JSON) is bad practice.
@@ -87,7 +89,7 @@ To conclude, we can choose the response's `Content-Type` by the request's `Accep
 
 ### Design
 When `../authenticate` request the response will be encoded **only** if the `Accept` header is `text/plain`. 
-Otherwise, returns decoded json access token as `application/json`.
+Otherwise, returns json access token as `application/json`.
 
 ```ruby
 def authenticate
@@ -106,7 +108,7 @@ By requesting `../authenticate.encoded` the output will be encoded access token.
 
 ### Design
 When `../authenticate` request the response will be encoded **only** if the url suffix (wildcard) is `.encoded`.
-Otherwise, returns decoded json access token as `application/json`
+Otherwise, returns json access token as `application/json`
 
 ```ruby
 def authenticate
