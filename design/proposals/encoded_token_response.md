@@ -81,30 +81,36 @@ The requested situation is to support both response of current **Flattened** JWS
     The `../autheticate` response is in JSON format so it makes sense to use `application\json` as the response content type.
         As well as `../logic`,  which returns the api key as `text\plain`.
 
-## Solution - Accept HTTP Header
+## Solution - Accept HTTP Headers
 According to [MDN web docs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept):
  > The `Accept` request HTTP header advertises which content types the client is able to understand. Using content negotiation, the server then selects one of the proposals, uses it and informs the client of its choice with the `Content-Type` response header.
 
 To conclude, we can choose the response's `Content-Type` by the request's `Accept` header.
 
+We can add the usage of `Accept-Encoding` HTTP header, which advertises which content type encoding the client is able to undetstand. 
+
 ### Design
-When `../authenticate` request the response will be encoded **only** if the `Accept` header is `text/plain`. 
+When `../authenticate` request the response will be encoded **only** if the `Accept` header is `text/plain` and `Accept-Encoding` is `base64`.
 Otherwise, returns json access token as `application/json`.
 
 ```ruby
 def authenticate
     # get the authn access token
-    content_type = (request.headers["Accept"] == "text\plain") ? :text : :json
+    content_type = (request.headers["Accept"] == "text\plain" && request.headers["Accept-Encoding"] == "base64") ? :text : :json
     # encode Base64 if needed
     render content_type => auth_token
 ```
 ### Backwards compatibility
 Default behaviour: Only if the `Accept` is set to `text\plain` the response will be encoded.
 
+### Notes
+* Default behaviour causes that all other `Accept` content-types (and their encodings) are ignored (By requesting 
+`../authenticate` with `Accept: "xml", Accept-Encoding: "gzip"` will return decoded `application\json`).
+
 ## Solution - URL Patten
 According to [Rails Routing Guides](https://guides.rubyonrails.org/routing.html#route-globbing-and-wildcard-segments)  we can use wildcards to suggests the requested `Content_type`.
 
-By requesting `../authenticate.encoded` the output will be encoded access token.    
+By requesting `../authenticate.encoded` the output will be encoded access token.
 
 ### Design
 When `../authenticate` request the response will be encoded **only** if the url suffix (wildcard) is `.encoded`.
@@ -114,12 +120,20 @@ Otherwise, returns json access token as `application/json`
 def authenticate
     # get the authn access token
     # extract the url suffix
-    content_type = ( url_suffix == ".encoded") ? :text : :json
+    content_type = ( params[:format] == "encoded") ? :text : :json
     # encode Base64 if needed
     render content_type => auth_token
 ```
 ### Backwards compatibility
-Default behaviour: If the request doesn't include the `encoded` wildcard explicitly the response will be decoded.
+By adding `format: true` to the endpoint, it makes the wildcard **mandatory**. Which means that previous `../authenticate`
+request **will fail** unless we take care of non-format requests (can be done by adding a route without format or `respond_to` and `respond_with` keywords).
+
+## Omitted Solutions
+* **Optional Parameters** - By passing an optional parameter (`../authenticate?encoded=true` e.g.) which requires 
+an encoded response. This solution is not popular in Conjur because the server doesn't use url optional parameters.  
+
+* **New Endpoint** - By requesting to a new endpoint (`../authenticate/encoded` e.g.) the response will be encoded. This 
+solution is a redundant overhead which can (and should) be avoided. 
 
 ## Preferred Solution
 Even though, rails routing guidelines suggests that it supports response's content type based on wildcard suffix,
@@ -133,6 +147,10 @@ TBD
 
 ## Test Plan
 
+1. Tests should be on DAP and Conjur (HTTPS vs HTTP).
+2. All previous tests of `authenticate` method should passed.
+3. Perform performance test (Check for possible degradation) 
+
 | **Title** | **Given** | **When** | **Then** | **Comment** |
 |-----------|-----------|----------|----------|-------------|
 | Successful encoded token response           | Credentials          | I send an authenticate request          |  I get an encoded valid token        | Authenticate using the chosen method            |
@@ -145,4 +163,3 @@ TBD
 ## Open questions
 * Conjur server profile - Should we define conventions about Conjur sessions (requests and response content types)?
 * Audit/ Logs- Do we need to document successful encoded token requests in a special way?
-* Add the `Accept-Encoding` validation (Solution 1)?
