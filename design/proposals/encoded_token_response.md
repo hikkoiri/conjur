@@ -73,13 +73,13 @@ echo "Retrieved secret ${secret} from Conjur!!!"
 [Code reference](https://github.com/cyberark/conjur/blob/application_identity_validation/ci/authn-azure/run-authn-azure.sh#L16)
 
 
-The requested situation is to support both response of current **Flattened** JWS JSON Serialization with content type `application/json` and encoded JWS **Compact** Serialization with content type `text\plain`. 
+The requested situation is to support both response of current **Flattened** JWS JSON Serialization with content type `application/json` and encoded JWS **Compact** Serialization with content type `text/plain`. 
 
 ## Issue description
-1. HTTP server best practices: Using `application\json` as the content type to encoded output (not a JSON) is bad practice.
+1. HTTP server best practices: Using `application/json` as the content type to encoded output (not a JSON) is bad practice.
     So encoded output shouldn't use `application/json` unless it will be in JSON format. 
-    The `../autheticate` response is in JSON format so it makes sense to use `application\json` as the response content type.
-        As well as `../logic`,  which returns the api key as `text\plain`.
+    The `../autheticate` response is in JSON format so it makes sense to use `application/json` as the response content type.
+        As well as `../logic`,  which returns the api key as `text/plain`.
 
 ## Solution - Accept HTTP Headers
 According to [MDN web docs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept):
@@ -96,16 +96,16 @@ Otherwise, returns json access token as `application/json`.
 ```ruby
 def authenticate
     # get the authn access token
-    content_type = (request.headers["Accept"] == "text\plain" && request.headers["Accept-Encoding"] == "base64") ? :text : :json
+    content_type = (request.headers["Accept"] == "text/plain" && request.headers["Accept-Encoding"] == "base64") ? :text : :json
     # encode Base64 if needed
     render content_type => auth_token
 ```
 ### Backwards compatibility
-Default behaviour: Only if the `Accept` is set to `text\plain` the response will be encoded.
+Default behaviour: Only if the `Accept` is set to `text/plain` the response will be encoded.
 
 ### Notes
 * Default behaviour causes that all other `Accept` content-types (and their encodings) are ignored (By requesting 
-`../authenticate` with `Accept: "xml", Accept-Encoding: "gzip"` will return decoded `application\json`).
+`../authenticate` with `Accept: "xml", Accept-Encoding: "gzip"` will return decoded `application/json`).
 
 ## Solution - URL Patten
 According to [Rails Routing Guides](https://guides.rubyonrails.org/routing.html#route-globbing-and-wildcard-segments)  we can use wildcards to suggests the requested `Content_type`.
@@ -140,7 +140,7 @@ Even though, rails routing guidelines suggests that it supports response's conte
 I prefer the `Accept` HTTP header solution. This solution is is more accurate from content negotiation point of view.
 The suffix based solution is less complicated but it makes the request seems like it ask for a file (which ends with a 
 certain suffix) rather than a dynamic content type handling. The `Accept` method is more like a contract between the client 
-and server - in our case the client accepts `text\plain` response causes the server to send an encoded token. 
+and server - in our case the client accepts `text/plain` response causes the server to send an encoded token. 
 
 ## Security
 TBD
