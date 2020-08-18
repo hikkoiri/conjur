@@ -1,18 +1,22 @@
 # Encoded Token Response - Solution Design
 
 ## Table of Contents
+- [Encoded Token Response - Solution Design](#encoded-token-response---solution-design)
   * [Table of Contents](#table-of-contents)
   * [Glossary](#glossary)
   * [Useful links](#useful-links)
   * [Background](#background)
   * [Issue description](#issue-description)
-  * [Solution - Accept HTTP Header](#solution---accept-http-header)
-    + [Design](#design)
-    + [Backwards compatibility](#backwards-compatibility)
-  * [Solution - URL Patten](#solution---url-patten)
-    + [Design](#design-1)
-    + [Backwards compatibility](#backwards-compatibility-1)
-  * [Preferred Solution](#preferred-solution)
+    + [Solution](#solution)
+    + [Option A - Accept HTTP Headers](#option-a---accept-http-headers)
+      - [Design](#design)
+      - [Backwards compatibility](#backwards-compatibility)
+      - [Notes](#notes)
+    + [Option B - URL Patten](#option-b---url-patten)
+      - [Design](#design-1)
+      - [Backwards compatibility](#backwards-compatibility-1)
+    + [Omitted Solutions](#omitted-solutions)
+    + [Preferred Solution](#preferred-solution)
   * [Security](#security)
   * [Test Plan](#test-plan)
   * [Documentation](#documentation)
@@ -81,7 +85,9 @@ The requested situation is to support both response of current **Flattened** JWS
     The `../autheticate` response is in JSON format so it makes sense to use `application/json` as the response content type.
         As well as `../logic`,  which returns the api key as `text/plain`.
 
-## Solution - Accept HTTP Headers
+###  Solution
+Such behaviour can be implemented in many ways. In this section, 2 main options will be presented (including some omitted options).    
+### Option A - Accept HTTP Headers
 According to [MDN web docs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept):
  > The `Accept` request HTTP header advertises which content types the client is able to understand. Using content negotiation, the server then selects one of the proposals, uses it and informs the client of its choice with the `Content-Type` response header.
 
@@ -89,7 +95,7 @@ To conclude, we can choose the response's `Content-Type` by the request's `Accep
 
 We can add the usage of `Accept-Encoding` HTTP header, which advertises which content type encoding the client is able to undetstand. 
 
-### Design
+#### Design
 When `../authenticate` request the response will be encoded **only** if the `Accept` header is `text/plain` and `Accept-Encoding` is `base64`.
 Otherwise, returns json access token as `application/json`.
 
@@ -100,19 +106,19 @@ def authenticate
     # encode Base64 if needed
     render content_type => auth_token
 ```
-### Backwards compatibility
+#### Backwards compatibility
 Default behaviour: Only if the `Accept` is set to `text/plain` the response will be encoded.
 
-### Notes
+#### Notes
 * Default behaviour causes that all other `Accept` content-types (and their encodings) are ignored (By requesting 
 `../authenticate` with `Accept: "xml", Accept-Encoding: "gzip"` will return decoded `application/json`).
 
-## Solution - URL Patten
+### Option B - URL Patten
 According to [Rails Routing Guides](https://guides.rubyonrails.org/routing.html#route-globbing-and-wildcard-segments)  we can use wildcards to suggests the requested `Content_type`.
 
 By requesting `../authenticate.encoded` the output will be encoded access token.
 
-### Design
+#### Design
 When `../authenticate` request the response will be encoded **only** if the url suffix (wildcard) is `.encoded`.
 Otherwise, returns json access token as `application/json`
 
@@ -124,18 +130,18 @@ def authenticate
     # encode Base64 if needed
     render content_type => auth_token
 ```
-### Backwards compatibility
+#### Backwards compatibility
 By adding `format: true` to the endpoint, it makes the wildcard **mandatory**. Which means that previous `../authenticate`
 request **will fail** unless we take care of non-format requests (can be done by adding a route without format or `respond_to` and `respond_with` keywords).
 
-## Omitted Solutions
+### Omitted Solutions
 * **Optional Parameters** - By passing an optional parameter (`../authenticate?encoded=true` e.g.) which requires 
 an encoded response. This solution is not popular in Conjur because the server doesn't use url optional parameters.  
 
 * **New Endpoint** - By requesting to a new endpoint (`../authenticate/encoded` e.g.) the response will be encoded. This 
 solution is a redundant overhead which can (and should) be avoided. 
 
-## Preferred Solution
+### Preferred Solution
 Even though, rails routing guidelines suggests that it supports response's content type based on wildcard suffix,
 I prefer the `Accept` HTTP header solution. This solution is is more accurate from content negotiation point of view.
 The suffix based solution is less complicated but it makes the request seems like it ask for a file (which ends with a 
@@ -163,3 +169,4 @@ TBD
 ## Open questions
 * Conjur server profile - Should we define conventions about Conjur sessions (requests and response content types)?
 * Audit/ Logs- Do we need to document successful encoded token requests in a special way?
+
