@@ -43,8 +43,8 @@
 
 ## Background
 
-As a Conjur User or Host, I want to send authentication request to `authn` authenticator (for example).
-So that I receive a JWT access token.
+When a Conjur identity sends authentication request to `authn` authenticator (for example), it receives a JWT access token.
+An example for optional HTTP session flow: 
 
 ![alt text](encoded_token_chart.jpeg "Login process")
 
@@ -65,6 +65,8 @@ authn_azure_response=$(curl -k -X POST \
   -H "Content-Type: application/x-www-form-urlencoded" \
   --data "jwt=$azure_access_token" \
   https://"$CONJUR_SERVER_DNS":8443/authn-azure/test/cucumber/host%2Fazure-apps%2Ftest-app/authenticate)
+
+# Explicit Encoding of the JWT from the response 
 authn_azure_access_token=$(echo -n "$authn_azure_response" | base64 | tr -d '\r\n')
 
 echo "Retrieve a secret using the Conjur access token"
@@ -83,7 +85,7 @@ The requested situation is to support both response of current **Flattened** JWS
 1. HTTP server best practices: Using `application/json` as the content type to encoded output (not a JSON) is bad practice.
     So encoded output shouldn't use `application/json` unless it will be in JSON format. 
     The `../autheticate` response is in JSON format so it makes sense to use `application/json` as the response content type.
-        As well as `../logic`,  which returns the api key as `text/plain`.
+        As well as `../login`,  which returns the api key as `text/plain`.
 
 ###  Solution
 Such behaviour can be implemented in many ways. In this section, 2 main options will be presented (including some omitted options).    
@@ -96,7 +98,7 @@ To conclude, we can choose the response's `Content-Type` by the request's `Accep
 We can add the usage of `Accept-Encoding` HTTP header, which advertises which content type encoding the client is able to undetstand. 
 
 #### Design
-When `../authenticate` request the response will be encoded **only** if the `Accept` header is `text/plain` and `Accept-Encoding` is `base64`.
+When `../authenticate` request the response will be encoded **only** if the `-H Accept: text/plain` and `"Accept-Encoding: base64"`.
 Otherwise, returns json access token as `application/json`.
 
 ```ruby
