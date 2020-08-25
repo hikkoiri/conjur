@@ -162,7 +162,8 @@ TBD
 
 | **Title** | **Given** | **When** | **Then** | **Comment** |
 |-----------|-----------|----------|----------|-------------|
-| Successful encoded token response           | Credentials          | I send an authenticate request          |  I get an encoded valid token        | Authenticate using the chosen method            |
+| Successful encoded token response           | Credentials          | I send an authenticate request          |  I get an encoded valid token        | Authenticate using the chosen method. Also test with Accept-Encoding which is only base64 and includes base64|
+| Successful json token response             | Credentials           | I send an authenticate request with Accept-Encoding header which isn't base64   | I get a decoded valid token  | relevant to solution 1 | 
 | Failed authenticate request works          | Wrong credentials          | I send an authenticate request         | I get the same response as decode flow         |             |
 
 
