@@ -87,7 +87,7 @@ The requested situation is to support both response of current **Flattened** JWS
     The `../autheticate` response is in JSON format so it makes sense to use `application/json` as the response content type.
         As well as `../login`,  which returns the api key as `text/plain`.
 
-###  Solution
+##  Solution
 Such behaviour can be implemented in many ways. In this section, 2 main options will be presented (including some omitted options).    
 ### Option A - Accept HTTP Headers
 According to [MDN web docs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept):
@@ -95,7 +95,8 @@ According to [MDN web docs](https://developer.mozilla.org/en-US/docs/Web/HTTP/He
 
 To conclude, we can choose the response's `Content-Type` by the request's `Accept` header.
 
-We can add the usage of `Accept-Encoding` HTTP header, which advertises which content type encoding the client is able to undetstand. 
+We can add the usage of `Accept-Encoding` HTTP header, which advertises which content type encoding the client is able to understand.
+The server will return the encoded response with the header `Content-Encoding: base64` to make it clear that the chosen encoding method is base64.  
 
 #### Design
 When `../authenticate` request the response will be encoded **only** if the `-H Accept: text/plain` and `"Accept-Encoding: base64"`.
