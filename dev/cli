@@ -31,12 +31,23 @@ GLOBAL OPTIONS
 COMMANDS
     --authn-oidc    Enables OIDC features
     --authn-azure   Enables Azure features
-    --authn-gce     Enables GCE features
+    --authn-gce [GCE_INSTANCE_NAME] Enables GCE features passing in the Google Compute Engine VM name
 EOF
 exit
 }
 
 function enable_gce() {
+  local gce_instance_name="$1"
+
+  if [ -z "$gce_instance_name" ]; then
+    local prgname=$(basename "$0")
+    echo "Missing GCE instance name. Usage ./$prgname exec --authn-gce [GCE_INSTANCE_NAME]"
+    exit 1
+  fi
+
+  echo "Obtain GCE ID tokens from GCE instance: '$gce_instance_name' and persist tokens"
+  ../ci/authn-gce/get_gce_id_tokens.sh "$gce_instance_name"
+
   gce_token_file="../ci/authn-gce/tokens/gce_token_valid"
   if ! [ -f "$gce_token_file" ]; then
     echo "GCE token file $gce_token_file does not exist."
@@ -51,12 +62,20 @@ function enable_gce() {
   GCE_SERVICE_ACCOUNT_ID="$(echo "$decoded_gce_token_payload" | jq -r '.sub')"
   GCE_SERVICE_ACCOUNT_EMAIL="$(echo "$decoded_gce_token_payload" | jq -r '.email')"
 
+  # It is sufficient to check only the project id env value to determine if the
+  # token is valid and contains the mandatory compute_engine claim.
+  if [ -z "$GCE_PROJECT_ID" ]; then
+    echo "Failed extracting env parameters from token"
+    exit 1
+  fi
+
   local gce_env_args="-e GCE_INSTANCE_NAME=$GCE_INSTANCE_NAME \
                       -e GCE_SERVICE_ACCOUNT_ID=$GCE_SERVICE_ACCOUNT_ID \
                       -e GCE_SERVICE_ACCOUNT_EMAIL=$GCE_SERVICE_ACCOUNT_EMAIL \
                       -e GCE_PROJECT_ID=$GCE_PROJECT_ID"
 
   env_args="$env_args $gce_env_args"
+  echo "Finished setting GCE details as env variables."
 }
 
 _get_gce_token_payload() {
@@ -116,7 +135,7 @@ while true ; do
         -h | --help ) print_exec_help ; shift ;;
         --authn-oidc ) enable_oidc ; shift ;;
         --authn-azure ) enable_azure ; shift ;;
-        --authn-gce ) enable_gce ; shift ;;
+        --authn-gce ) enable_gce "$3" ; shift ;;
         * ) if [ -z "$2" ]; then shift ; else echo "$2 is not a valid option"; exit 1; fi;;
       esac
 
