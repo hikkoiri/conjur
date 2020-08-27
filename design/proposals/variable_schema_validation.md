@@ -2,14 +2,15 @@
 
 - [Variable Schema Validation Proposal](#variable-schema-validation-proposal)
   - [Introduction](#introduction)
+  - [Current Limitations](#current-limitations)
   - [Proposed Solution](#proposed-solution)
     - [User Experience](#user-experience)
     - [Functionality](#functionality)
       - [Input Validation](#input-validation)
       - [Secrets Encryption](#secrets-encryption)
-      - [Builtin Schemas](#builtin-schemas)
-      - [Additional Required Functionality](#additional-required-functionality)
-  - [Main Advantages of This Proposal](#main-advantages-of-this-proposal)
+      - [Built-in Schemas](#built-in-schemas)
+      - [Automatic Permission Granting to Built-in Schemas](#automatic-permission-granting-to-built-in-schemas)
+  - [Main Advantages and Expected Value From This Proposal](#main-advantages-and-expected-value-from-this-proposal)
   - [Affected Areas](#affected-areas)
   - [Backwards Compatibility](#backwards-compatibility)
   - [Performance](#performance)
@@ -18,6 +19,8 @@
   - [Version Update](#version-update)
   - [Future Work](#future-work)
   - [Delivery Plan](#delivery-plan)
+    - [Minimal Functionality](#minimal-functionality)
+    - [Extended Functionality](#extended-functionality)
   
 ## Introduction
 
@@ -34,19 +37,25 @@ Currently, this is handled by defining multiple variables in Conjur. Each variab
 - !policy
   id: my-policy
   body:
-    - &vars
-      - !variable mysql-db-creds/password
-      - !variable mysql-db-creds/username
-      - !variable mysql-db-creds/address
-      - !variable mysql-db-creds/port
+  - &vars
+    - !variable mysql-db-creds/password
+    - !variable mysql-db-creds/username
+    - !variable mysql-db-creds/address
+    - !variable mysql-db-creds/port
 
-    - !host my-app
-    
-    - !permit
-      role: !host my-app
-      privileges: [ read,execute ]
-      resource: *vars
+  - !host my-app
+  
+  - !permit
+    role: !host my-app
+    privileges: [ read,execute ]
+    resource: *vars
 ```
+
+## Current Limitations
+
+- Multiple variables cannot be updated together, as a single transaction. This might lead to a momentary inconsitency when for example, a username is updated, the password should probabaly be updated as well.
+- There is no enforcement on the content of a variable, which can lead to unintended invalid content.
+- There is no enforcement on the group of variables needed for a certain use case. For example, a database connection requires a username, password, connection URL or address and port. A user could accidentally forget to specify a certain needed variable.
 
 ## Proposed Solution
 
@@ -123,8 +132,8 @@ In the example above, the `/conjur/schemas/mysql-schema` variable will be update
   },
   "required": ["username", "password"],
   "additionalProperties": false,
-  "secrets": [
-      "password",
+  "non-secrets": [
+      "username", "port", "address"
     ]
 }
 ```
@@ -153,11 +162,18 @@ For the example above, Conjur will use the JSON schema specified in `conjur/sche
 - `port` must contain a valid port number.
 - `password` must align to a sufficient complexity.
 
-If the varialbe content is invalid, the user will get an HTTP code of 422 (Unprocessable Entity) and the body of the response will also contain an elaborative error message that explains what part of the input was found to be invalid.
+If the variable content is invalid, the user will get an HTTP code of 422 (Unprocessable Entity) and the body of the response will also contain an elaborative error message that explains what part of the input was found to be invalid.
+
+For the example above, if the user would provide a string as the port value, the following error message will be returned:
+
+```text
+Message: Invalid type. Expected Integer but got String.
+Schema path: https://cyberark.com/mysql.schema.json#/properties/port/type
+```
 
 #### Secrets Encryption
 
-The JSON schema can contain a property called `secrets` which expects an array of JSON schema property names. The properties specified in this array, will be encrypted in the database. All the rest of the properties and the JSON structure will remain in cleartext. This allows the protection of sensitive data while also allowing the non-sensitive values to be searchable.
+The JSON schema can contain a property called `non-secrets` which expects an array of JSON schema property names. The properties specified in this array will not be encrypted in the database, along with the JSON structure. The unspecified attributes, will by default get encrypted. This allows the protection of sensitive data while also allowing the non-sensitive values to be searchable. Meaning that the variable will not be encrypted as a whole, but only the sensitive attributes in the JSON structure.
 
 For the example above, the `mysql-db-creds` variable will be saved in the database as follows:
 
@@ -181,7 +197,7 @@ Before the variable value is returned to the client, the secret attributes are d
 }
 ```
 
-#### Builtin Schemas
+#### Built-in Schemas
 
 To simplify the user experience, Conjur can come with prdefined JSON schemas for the most common secrets use cases. The list of predefined schmeas should include:
 
@@ -192,9 +208,9 @@ To simplify the user experience, Conjur can come with prdefined JSON schemas for
 
 Write about the advantages of atomicity, minimal changes in the database to implement this and so on.
 
-#### Additional Required Functionality
+#### Automatic Permission Granting to Built-in Schemas
 
-In order to provide access for any role to the builtin schemas, a new builtin group should be introduced: `conjur/all`. All roles in the Conjur account should be added to this group automatically, thus keeping this group always up to date with all the roles that exist in the account.
+In order to provide access for any role to the built-in schemas, a new built-in group should be introduced: `conjur/all`. All roles in the Conjur account should be added to this group automatically, thus keeping this group always up to date with all the roles that exist in the account.
 
 Usage example:
 
@@ -205,18 +221,19 @@ Usage example:
   resource: !variable my-var
 ```
 
-## Main Advantages of This Proposal
+## Main Advantages and Expected Value From This Proposal
 
-- The feature does not require changes in the database schma, only in new builtin content.
-- The returned variable is in a JSON structure, same as the rest of our APIs responses.
-- We leverage a standard way to enforce the content of the varialbe, with a well known JSON schema.
+- We leverage a standard way to enforce the content of the variable, with a well known JSON schema.
 - Tightly coupled values, such as username and password, are updated together in a single transaction. This will prevent momentary inconsistency in which each value was updated independently, one after the other.
+- The user will not have to look in the documentation or to understand the required variables, their structure or allowed input. Conjur will provide this feedback when an update attempt is made.
+- The feature does not require changes in the database schma, only in new built-in content.
+- The returned variable is in a JSON structure, same as the rest of our APIs responses.
 
 ## Affected Areas
 
 - The new functionality will be developed in the Conjur server and the policy parser.
 - No new APIs are needed, since all the functionality will be given as part of the policy loading.
-- No changes required in the database structure. But new builtin data should be added into the database tables, when they are initially created (clean install) or when an upgrade occurs from any prioir version.
+- No changes required in the database structure. But new built-in data should be added into the database tables, when they are initially created (clean install) or when an upgrade occurs from any prioir version.
 
 ## Backwards Compatibility
 
@@ -235,7 +252,7 @@ Introducing a new `conjur/all` group can potentially be dangerous for uncautios 
 We will need to update the docs of this new functionality, under the policy management section. The documentation should include the following:
 
 - How the variable schema validation works
-- How can a user use the builtin schemas
+- How can a user use the built-in schemas
 - How can a user create new schemas
 - Policy examples with schema examples. Explain how the variable content is enforced in these examples.
 
@@ -249,16 +266,28 @@ Modify our examples and integrations, such as the Conjur Summon provider, to lev
 
 ## Delivery Plan
 
-Rough estimations of the high level delivery plan includes the following steps:
+### Minimal Functionality
 
-| Functionality                                                    | Dev    | Tests  |
-|------------------------------------------------------------------|--------|--------|
-| Adding a new `schema` attribute to the variables policy syntax   | 3 days | 3 days |
-| Adding builtin schemas to the database migration process         | 5 days | 2 days |
-| Adding builtin `all` group                                       | 2 days | 2 days |
-| Every new role is automatically added to the `all` group         | 4 days | 2 days |
-| Adding JSON schema enforcement on variables                      | 5 days | 3 days |
-| Adding encryption to the specified secrets attributes            | 3 days | 2 days |
-| Documentation                                                    | 4 days | -      |
+Includes variable content neforcement with JSON schema
+
+| Functionality                                                                                   | Dev    | Tests  |
+|-------------------------------------------------------------------------------------------------|--------|--------|
+| Adding a new `schema` attribute to the variables policy syntax                                  | 3 days | 3 days |
+| Adding JSON schema enforcement on variables                                                     | 5 days | 3 days |
+| Documentation                                                                                   | 3 days | -      |
   
-**Total: 40 days**
+**Total: 17 days**
+
+### Extended Functionality
+
+Includes built-in JSON schemas, selective encryption of the secrets attributes in the JSON structure, and automatic permission grant for all the users on the built-ing schemas.
+
+| Functionality                                                                                   | Dev    | Tests  |
+|-------------------------------------------------------------------------------------------------|--------|--------|
+| Adding built-in schemas to the database migration process                                        | 5 days | 2 days |
+| Adding built-in `all` group                                                                      | 2 days | 2 days |
+| Every new role is automatically added to the `all` group                                        | 4 days | 2 days |
+| Change variable encryption to the secret attributes only, instead of the whole variable payload | 3 days | 2 days |
+| Documentation                                                                                   | 3 days | -      |
+
+**Total: 25 days**
