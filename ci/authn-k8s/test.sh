@@ -39,6 +39,9 @@ function setupTestEnvironment() {
       ;;
     openshift*)
       export DOCKER_REGISTRY_PATH="$OPENSHIFT_REGISTRY_URL/$CONJUR_AUTHN_K8S_TEST_NAMESPACE"
+      echo "dvir1 $OPENSHIFT_REGISTRY_URL"
+      echo "dvir2 $CONJUR_AUTHN_K8S_TEST_NAMESPACE"
+      echo "dvir3 $DOCKER_REGISTRY_PATH"
       ;;
     *)
       echo "'$PLATFORM' is not a supported test platform"
@@ -107,20 +110,27 @@ function test_gke() {
 
 function test_openshift() {
   docker run --rm \
-    -e CONJUR_AUTHN_K8S_TAG \
-    -e CONJUR_TEST_AUTHN_K8S_TAG \
-    -e INVENTORY_TAG \
-    -e NGINX_TAG \
-    -e CONJUR_AUTHN_K8S_TEST_NAMESPACE \
-    -e PLATFORM \
-    -e K8S_VERSION \
+    -e DEPLOY_MASTER_CLUSTER=true \
+    -e TEST_PLATFORM \
     -e OPENSHIFT_URL \
     -e OPENSHIFT_REGISTRY_URL \
     -e OPENSHIFT_USERNAME \
     -e OPENSHIFT_PASSWORD \
+    -e K8S_VERSION \
+    -e CONJUR_APPLIANCE_IMAGE \
+    -e CONJUR_NAMESPACE_NAME \
+    -e DOCKER_REGISTRY_PATH \
+    -e CONJUR_VERSION \
+    -e CONJUR_DEPLOYMENT \
+    -e CONJUR_ACCOUNT \
+    -e CONJUR_ADMIN_PASSWORD \
+    -e AUTHENTICATOR_ID \
+    -e MINI_ENV \
+    -e LOCAL_CONJUR_IMAGE \
+    -e DOCKER_EMAIL \
+    -e FOLLOWER_SEED="" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$PWD":/src \
-    $CONJUR_AUTHN_K8S_TESTER_TAG bash -c "./test_oc_entrypoint.sh"
-}
+    $K8S_CONJUR_DEPLOY_TESTER_IMAGE bash -c "./test_oc_entrypoint.sh"
 
 main
