@@ -11,7 +11,7 @@ module Authentication
 
     KubectlExec ||= CommandClass.new(
       dependencies: {
-        logger:  Rails.logger
+        logger: Rails.logger
       },
       inputs: %i( k8s_object_lookup
                   pod_namespace
@@ -33,11 +33,11 @@ module Authentication
           )
         )
 
-        @message_log = MessageLog.new
+        @message_log    = MessageLog.new
         @channel_closed = false
 
-        url = server_url(@cmds, @stdin)
-        headers = kubeclient.headers.clone
+        url       = server_url(@cmds, @stdin)
+        headers   = kubeclient.headers.clone
         ws_client = WebSocket::Client::Simple.connect(url, headers: headers)
 
         add_websocket_event_handlers(ws_client, @body, @stdin)
@@ -58,7 +58,7 @@ module Authentication
       end
 
       def on_open(ws_client, body, stdin)
-        hs = ws_client.handshake
+        hs       = ws_client.handshake
         hs_error = hs.error
 
         if hs_error
@@ -148,7 +148,7 @@ module Authentication
 
       def query_string(cmds, stdin)
         stdin_part = stdin ? ['stdin=true'] : []
-        cmds_part = cmds.map { |cmd| "command=#{CGI.escape(cmd)}" }
+        cmds_part  = cmds.map { |cmd| "command=#{CGI.escape(cmd)}" }
         (base_query_string_parts + stdin_part + cmds_part).join("&")
       end
 
@@ -157,10 +157,10 @@ module Authentication
       end
 
       def server_url(cmds, stdin)
-        api_uri = kubeclient.api_endpoint
+        api_uri  = kubeclient.api_endpoint
         base_url = "wss://#{api_uri.host}:#{api_uri.port}"
-        path = "/api/v1/namespaces/#{@pod_namespace}/pods/#{@pod_name}/exec"
-        query = query_string(cmds, stdin)
+        path     = "/api/v1/namespaces/#{@pod_namespace}/pods/#{@pod_name}/exec"
+        query    = query_string(cmds, stdin)
         "#{base_url}#{path}?#{query}"
       end
 
@@ -190,12 +190,12 @@ module Authentication
         stdin: false)
         call(
           k8s_object_lookup: k8s_object_lookup,
-          pod_namespace: pod_namespace,
-          pod_name: pod_name,
-          container: container,
-          cmds: cmds,
-          body: body,
-          stdin: stdin
+          pod_namespace:     pod_namespace,
+          pod_name:          pod_name,
+          container:         container,
+          cmds:              cmds,
+          body:              body,
+          stdin:             stdin
         )
       end
 
