@@ -66,7 +66,6 @@ module Authentication
           if stdin
             data = WebSocketMessage.channel_byte('stdin') + body
             ws_client.send(data)
-            ws_client.send(nil, type: :close)
           end
         end
       end
