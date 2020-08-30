@@ -82,14 +82,19 @@ module Authentication
         msg_data = wsmsg.data
 
         if msg_type == :binary
-          @logger.debug(
-            LogMessages::Authentication::AuthnK8s::PodChannelData.new(
-              @pod_name,
-              wsmsg.channel_name,
-              msg_data
+          if msg_data.to_s.strip.empty?
+            @logger.debug(LogMessages::Authentication::AuthnK8s::PodExecCommandEnd.new)
+            ws_client.send(nil, type: :close)
+          else
+            @logger.debug(
+              LogMessages::Authentication::AuthnK8s::PodChannelData.new(
+                @pod_name,
+                wsmsg.channel_name,
+                msg_data
+              )
             )
-          )
-          @message_log.save_message(wsmsg)
+            @message_log.save_message(wsmsg)
+          end
         elsif msg_type == :close
           @logger.debug(
             LogMessages::Authentication::AuthnK8s::PodMessageData.new(

@@ -179,6 +179,11 @@ module LogMessages
         code: "CONJ00047D"
       )
 
+      PodExecCommandEnd = ::Util::TrackableLogMessageClass.new(
+        msg:  "Command execution succeeded - closing the channel",
+        code: "CONJ00048D"
+      )
+
     end
 
     module AuthnIam
