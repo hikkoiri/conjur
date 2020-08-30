@@ -21,6 +21,14 @@ module Authentication
                   stdin )
     ) do
       def call
+        @logger.debug(
+          LogMessages::Authentication::AuthnK8s::PodExecCommand.new(
+            @cmds.join(" "),
+            @container,
+            @pod_name
+          )
+        )
+
         @message_log = MessageLog.new
         @channel_closed = false
 
