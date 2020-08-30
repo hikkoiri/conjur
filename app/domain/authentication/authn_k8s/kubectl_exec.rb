@@ -189,12 +189,12 @@ module Authentication
         container: 'authenticator')
         execute(
           k8s_object_lookup: k8s_object_lookup,
-          pod_namespace: pod_namespace,
-          pod_name: pod_name,
-          container: container,
-          cmds: ['tar', 'xvf', '-', '-C', '/'],
-          body: tar_file_as_string(path, content, mode),
-          stdin: true
+          pod_namespace:     pod_namespace,
+          pod_name:          pod_name,
+          container:         container,
+          cmds:              %w(tar xvf - -C /),
+          body:              tar_file_as_string(path, content, mode),
+          stdin:             true
         )
       end
 
